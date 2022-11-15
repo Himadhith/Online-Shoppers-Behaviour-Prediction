@@ -1,0 +1,289 @@
+---
+title: "Online Shoppers Behaviour"
+output:
+  word_document: default
+  html_document: default
+author: "V Himadhith"
+
+date: "2022-11-15"
+---
+# 1. Abstract and business objective
+
+The main objective revolved around the identification of key metrics which contributes the most towards predicting a shopper's behavior and to suggest prioritized critical recommendations and performance improvements on the same. Revenue is the attribute of interest which identifies if a purchase was made or not.
+
+# 2. Data Preprocessing
+
+There are no missing values in the dataset. The structure of the attributes were altered  according to categorical and numerical basis. For modelling the categorical attributes were converted to ordered factor variables and numerically encoded. The numerical variables of the dataset were normalized
+for clustering methods and scaled for classification methods. 80% of the data was used during the training session and our modelling was tested on the remaining 20% of the unseen data.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#read the data
+data <- read.csv("online_shoppers_intention.csv")
+
+#take a look at the structure
+str(data)
+
+```
+
+```{r}
+#missing value analysis 
+
+sapply(data, function(x) sum(is.na(x)))
+data <- na.omit(data)
+str(data)
+unique(data$Month)
+```
+```{r}
+#fix the structure of the data 
+
+data$Revenue <- gsub(FALSE, 0, data$Revenue)
+data$Revenue <- gsub(TRUE, 1, data$Revenue)
+data$Weekend <- gsub(TRUE, 1, data$Weekend)
+data$Weekend <- gsub(FALSE, 0, data$Weekend)
+
+data$Month <- factor(data$Month, levels = c("Feb", "Mar", "May", "June", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), ordered = TRUE)
+data$OperatingSystems <- factor(data$OperatingSystems)
+data$Browser <- factor(data$Browser)
+data$Region <- factor(data$Region)
+data$TrafficType <- factor(data$TrafficType)
+data$VisitorType <- factor(data$VisitorType)
+data$Revenue <- factor(data$Revenue)
+data$Weekend <- factor(data$Weekend)
+str(data)
+```
+```{r}
+#Descriptive analysis 
+
+summary(data[,c(1:10)])
+table(data$Revenue)
+table(data$Weekend)
+table(data$VisitorType)
+table(data$TrafficType)
+table(data$Region)
+table(data$Browser)
+table(data$OperatingSystems)
+table(data$Month)
+
+```
+# 3. Business Intelligence and Recommendations 
+
+## 3.1. Impact of bounce rate and exit rate 
+
+Bounce rate is the overall percentage of a single engagement session whereas exit rate is the percentage of exits from a page. Hence the former is calculated by dividing the aggregation of one-page visits to the overall entrance visits whereas latter is calculated by dividing the aggregation of total exits from a page to the total visits to a page. One major difference between these closely tied metrics is that exit rate is related to the overall percentage of visitors that were within the last session whereas bounce rates account for the percentage of visitors that were part of that one and only session. Hence in the case of bounce rate, prior activity is not considered. Hence all bounces logically define exits but conversely it is not true . 
+
+Most of the numerical attributes seem to exhibit high positive skewness whereas some exhibit nominal tinge of negative skewness.
+```{r}
+#correlation
+
+library(corrplot)
+correlation <- cor(data[,c(1:10)])
+corrplot(correlation, method = "square", type = "lower", diag = TRUE)
+```
+```{r}
+#Relationship between Exit Rates and Bounce Rates 
+
+library(ggplot2)
+
+options(repr.plot.width = 8, repr.plot.height = 5)
+ggplot(data = data, mapping = aes(x = BounceRates, y = ExitRates)) + geom_point(mapping = aes(color = Revenue)) + geom_smooth(se = TRUE, alpha = 0.5) + theme_light() + ggtitle("Relationship between Exit Rates and Bounce Rates") + xlab("Bounce Rates") + ylab("Exit Rates") + geom_text(mapping = aes(x = 0.15, y = 0.05, label = "Correlation = 0.913"))
+```
+**Proposal 1:** Optimization of the landing product pages by means such as making the add to cart option stand out, UI friendly, short descriptions and icons wherever needed, color impactfulness and ensuring that the purchase experience is as smooth as possible. Another important aspect is to ensure not to create an illusion of low price until put in the cart, i.e. the shipping fees could create a significant impact over exit rates. Hence it is always better to exhibit the true cost right from the start.
+
+**Proposal 2:** Categorizing email retargeting based on funneling as mentioned with the previous dataset, so that there exists a personalized touch to the mail. Personalization brings in large scale loyalty and in turn better retention.
+
+**Proposal 3:** Introducing pop-ups offering qualitative discounts or personalized queries when a customer bounces multiple times and/or tries to leave the website.
+
+## 3.2 Impact of loyal customers and "weekend syndrome"
+
+The following figure depicts that most of the customers whether they drive in revenue or not, are returning customers, suggesting that the firm has dealt with good retention with customers. However, the need to work on conversion rates is apparent. This is a common tendency in many firms to focus on conversion or retention and not balance out on both. While retention speaks of brand value, without new customers driving in this could significantly impact sales and revenue growth. Most of the visitors came in and made a purchase during the weekday. We could exploit this
+further by trying to bring in more customers viewing and purchasing on the weekends.
+```{r}
+library(gridExtra)
+table(data$Revenue, data$VisitorType)
+
+options(repr.plot.width = 10, repr.plot.height = 6)
+p1 <- ggplot(data = data, mapping = aes(x = Revenue)) + geom_bar(mapping = aes(fill = VisitorType)) + theme_light() + ggtitle("Revenue based on visitor type") + xlab("Revenue status (0/1)") + ylab("Visitors") + theme(legend.position = "bottom") 
+options(repr.plot.width = 10, repr.plot.height = 6)
+p2 <- ggplot(data = data, mapping = aes(x = Revenue)) + geom_bar(mapping = aes(fill = Weekend)) + theme_light() + ggtitle("Revenue based on weekend status") + xlab("Revenue status (0/1)") + ylab("Visitors") + theme(legend.position = "bottom")
+
+grid.arrange(p1,p2, nrow = 1)
+```
+
+**Proposal 4:** Engage loyal customers in conversion of other customers by offering discounts for friends joining in. For new customers making a purchase in this manner, offer discounts as well.
+
+**Proposal 5:** Introduce time based or weekend based marketing campaign and/or promotional events to engage customers more on the weekends
+
+# 3.3. Impact of lower conversion during holidays 
+
+The following figure depicts the seasonality revenue growth. There seems to be a high customer engagement during the months of Feb, Mar and May, post which the trend seems to be decreasing. Moreover, between the months of June to Oct the trend seems to stagnate post which there seems to be high engagement as Black Friday approaches. When the demand appears high, there appears to be a lot of engagement but significantly lower conversion rates as most of these purchases are driven by returning customers (plot on the right). While this suggests the presence of a good loyalty program, more attention is needed in conversion as the plots above suggests that a lot of customers are viewing your products but not taking a step further to make a purchase.
+```{r}
+#Trend line for revenue status based on months and trend line for visitor type based on months 
+options(repr.plot.width = 8, repr.plot.height = 5)
+
+trend <- data.frame(table(data$Month, data$Revenue))
+names(trend) <- c("Months", "Revenue", "Frequency")
+ggplot(data = trend, mapping = aes(x = Months, y = Frequency)) + geom_line(mapping = aes(color = Revenue, group = Revenue), lwd = 1) + geom_point(mapping = aes(color = Revenue, group = Revenue, size = 0.1), show.legend = FALSE) + theme_light() + scale_y_continuous(breaks = seq(from = 0, to = 4000, by = 500)) + ggtitle("Trend line for revenue status based on months") + xlab("Months") + ylab("Visitors") 
+
+trend <- data.frame(table(data$VisitorType, data$Month))
+names(trend) <- c("VisitorType", "Month", "Frequency")
+ggplot(data = trend, mapping = aes(x = Month, y = Frequency)) + geom_line(mapping = aes(color = VisitorType, group = VisitorType), lwd = 1) + geom_point(mapping = aes(color = VisitorType, group = VisitorType, size = 0.1), show.legend = FALSE) + theme_light() + scale_y_continuous(breaks = seq(from = 0, to = 4000, by = 500)) + ggtitle("Trend line for visitor type based on months") + xlab("Months") + ylab("Visitors")
+```
+
+**Proposal 6:** Introduction of seasonal promotions with attractive offers and events, engaging more conversions and ensuring loyal customers have a beneficial part in bringing in new conversions.
+
+## 3.4. Impact of other revenue drivers 
+
+From the following figure, we can capture the relationship between revenue
+growth and the operating system, browser region and traffic type sources. With respect to OS, the top performer remained “2” in both cases i.e, visitors and visitors who made a purchase. However, following positions were conversely secured by “1” and “3”. Other sources brought in considerably lower customers. This could either mean that the website is not user friendly on those sources or simply because those sources are niche, not many customers use them. With respect to browsers, “2” remains at the top followed by “1” , “4” and “5” in both cases. This could suggest the same reasonings as OS. With respect to region, “1” seems to be performing significantly better followed by “3” in both cases. The lead of “1” is highly significant suggesting that marketing reach within this region is well versed with. There is room for improvement within other regions. With respect to traffic type, “2” remains in the lead followed by “1” and “3”, suggesting the impact of Google SEO optimization. However, only 45% of these were revenue driven, |suggesting room for improvement with SEO and/or Google / Social media Ads.
+
+
+```{r}
+#Relationship between OS and Revenue 
+
+library(dplyr)
+trend <- data.frame(table(data$OperatingSystems, data$Revenue))
+str(trend)
+names(trend) <- c("OS", "Revenue", "Freq")
+a <- trend %>% filter(Revenue == 0)
+a$perc <- (a$Freq / sum(a$Freq)) * 100
+b <- trend %>% filter(Revenue == 1)
+b$perc <- (b$Freq / sum(b$Freq)) * 100
+options(repr.plot.width = 8, repr.plot.height = 5)
+plot1 <- ggplot(data = a, mapping = aes(x = reorder(OS, -perc), y = perc)) + geom_bar(stat = "identity", mapping = aes(fill = OS)) + coord_flip() + theme_light() + scale_y_continuous(breaks = seq(from = 0, to = 60, by = 5)) + xlab("Operating System Types") + ylab("Total visitors (in percentage)") + theme(legend.position = "bottom") + ggtitle("Relationship - OS and revenue") + labs(subtitle = "Revenue = 0")
+plot2 <- ggplot(data = b, mapping = aes(x = reorder(OS, -perc), y = perc)) + geom_bar(stat = "identity", mapping = aes(fill = OS)) + coord_flip() + theme_light() + scale_y_continuous(breaks = seq(from = 0, to = 60, by = 5)) + xlab("Operating System Types") + ylab("Total visitors (in percentage)") + theme(legend.position = "bottom") + ggtitle("Relationship - OS and revenue") + labs(subtitle = "Revenue = 0")
+grid.arrange(plot1, plot2, nrow = 1)
+
+#Relationship between Browser and Revenue 
+
+trend <- data.frame(table(data$Browser, data$Revenue))
+str(trend)
+names(trend) <- c("Browser", "Revenue", "Freq")
+a <- trend %>% filter(Revenue == 0)
+a$perc <- (a$Freq / sum(a$Freq)) * 100
+b <- trend %>% filter(Revenue == 1)
+b$perc <- (b$Freq / sum(b$Freq)) * 100
+plot1 <- ggplot(data = a, mapping = aes(x = reorder(Browser, -perc), y = perc)) + geom_bar(stat = "identity", mapping = aes(fill = Browser)) + coord_flip() + theme_light() + scale_y_continuous(breaks = seq(from = 0, to = 90, by = 5)) + xlab("Browser") + ylab("Total visitors (in percentage)") + theme(legend.position = "bottom") + ggtitle("Relationship - browser and revenue") + labs(subtitle = "Revenue = 0")
+plot2 <- ggplot(data = b, mapping = aes(x = reorder(Browser, -perc), y = perc)) + geom_bar(stat = "identity", mapping = aes(fill = Browser)) + coord_flip() + theme_light() + scale_y_continuous(breaks = seq(from = 0, to = 90, by = 5)) + xlab("Browser") + ylab("Total visitors (in percentage)") + theme(legend.position = "bottom") + ggtitle("Relationship - browser and revenue") + labs(subtitle = "Revenue = 1" )
+grid.arrange(plot1, plot2, nrow = 1)
+
+#Relationship between Region and Revenue 
+
+trend <- data.frame(table(data$Region, data$Revenue))
+str(trend)
+names(trend) <- c("Region", "Revenue", "Freq")
+a <- trend %>% filter(Revenue == 0)
+a$perc <- (a$Freq / sum(a$Freq)) * 100
+b <- trend %>% filter(Revenue == 1)
+b$perc <- (b$Freq / sum(b$Freq)) * 100
+plot1 <- ggplot(data = a, mapping = aes(x = reorder(Region, -perc), y = perc)) + geom_bar(stat = "identity", mapping = aes(fill = Region)) + coord_flip() + theme_light() + scale_y_continuous(breaks = seq(from = 0, to = 60, by = 5)) + xlab("Region") + ylab("Total visitors (in percentage)") + theme(legend.position = "bottom") + ggtitle("Relationship - region and revenue") + labs(subtitle = "Revenue = 0")
+plot2 <- ggplot(data = b, mapping = aes(x = reorder(Region, -perc), y = perc)) + geom_bar(stat = "identity", mapping = aes(fill = Region)) + coord_flip() + theme_light() + scale_y_continuous(breaks = seq(from = 0, to = 60, by = 5)) + xlab("Region") + ylab("Total visitors (in percentage)") + theme(legend.position = "bottom") + ggtitle("Relationship - region and revenue") + labs(subtitle = "Revenue = 1" )
+grid.arrange(plot1, plot2, nrow = 1)
+
+#Relationship between traffic type and Revenue
+
+trend <- data.frame(table(data$TrafficType, data$Revenue))
+str(trend)
+names(trend) <- c("TrafficType", "Revenue", "Freq")
+a <- trend %>% filter(Revenue == 0)
+a$perc <- (a$Freq / sum(a$Freq)) * 100
+b <- trend %>% filter(Revenue == 1)
+b$perc <- (b$Freq / sum(b$Freq)) * 100
+plot1 <- ggplot(data = a, mapping = aes(x = reorder(TrafficType, -perc), y = perc)) + geom_bar(stat = "identity", mapping = aes(fill = TrafficType)) + coord_flip() + theme_light() + scale_y_continuous(breaks = seq(from = 0, to = 60, by = 5)) + xlab("Traffic Type") + ylab("Total visitors (in percentage)") + theme(legend.position = "bottom") + ggtitle("Relationship - traffic type and revenue") + labs(subtitle = "Revenue = 0")
+plot2 <- ggplot(data = b, mapping = aes(x = reorder(TrafficType, -perc), y = perc)) + geom_bar(stat = "identity", mapping = aes(fill = TrafficType)) + coord_flip() + theme_light() + scale_y_continuous(breaks = seq(from = 0, to = 60, by = 5)) + xlab("Traffic Type") + ylab("Total visitors (in percentage)") + theme(legend.position = "bottom") + ggtitle("Relationship - traffic type and revenue") + labs(subtitle = "Revenue = 1" )
+grid.arrange(plot1, plot2, nrow = 1)
+```
+**Proposal 7:** Ensuring smooth technical operations with enhanced and personalized UI experience supported by all browsers and OS.
+
+**Proposal 8:** Adapting similar model based approach as Region 1 over other regions by customizing the same according to social and cultural drivers. Personalizing ads and reach by A/B testing to ensure the reach and conversion / retention shows significant growth among all regions.
+
+**Proposal 9:** Ensuring optimization of SEO from different sources such as Google, Bing, Baidu etc. Working with region and age specific A/B testing within Google Ads, Facebook Ads or other sources.
+
+# 4. Shoppers' intention prediction model
+
+## 4.1. Data preprocessing for modelling 
+
+```{r}
+#Data preprocessing for modelling 
+library(plyr)
+data <- read.csv("online_shoppers_intention.csv")
+data <- na.omit(data)
+
+#numerical factors better for algorithms 
+data$Month <- factor(data$Month, order = TRUE, levels =c('Feb', 'Mar', 'May', 'June','Jul', 'Aug', 'Sep','Oct', 'Nov','Dec'))
+data$Month_num <- mapvalues(data$Month, from = c('Feb', 'Mar', 'May', 'June','Jul', 'Aug', 'Sep','Oct', 'Nov','Dec'), to = c(1,2,3,4,5,6,7,8,9,10))
+data$VisitorType <- factor(data$VisitorType, order = TRUE, levels = c('Returning_Visitor', 'Other', 'New_Visitor'))
+data$VisitorType_Num <-mapvalues(data$VisitorType, from = c("Returning_Visitor", "Other", "New_Visitor"), to = c(1,2,3))
+data$OperatingSystems <- factor(data$OperatingSystems, order = TRUE, levels = c(6,3,7,1,5,2,4,8))
+data$Browser <- factor(data$Browser, order = TRUE, levels = c(9,3,6,7,1,2,8,11,4,5,10,13,12))
+data$Region <- factor(data$Region, order = TRUE, levels = c(8,6,3,4,7,1,5,2,9))
+data$TrafficType <- factor(data$TrafficType, order = TRUE, levels = c(12,15,17,18,13,19,3,9,1,6,4,14,11,10,5,2,20,8,7,16))
+data$Weekend <- ifelse(data$Weekend == TRUE, 1, 0)
+
+str(data)
+```
+
+```{r}
+#Split the training and testing sets 
+library(caret)
+
+set.seed(777)
+split  <- createDataPartition(data$Revenue, p = 0.8, list = FALSE)
+train <- data[split,]
+test <- data[-split,]
+```
+Decision tree
+
+```{r}
+#Scale 
+sample_train <- train
+sample_train[,c(1:10)] <- scale(sample_train[,c(1:10)])
+```
+
+```{r}
+library(rpart)
+library(rpart.plot)
+
+set.seed(1)
+model1_decision <- rpart(Revenue ~ ., data = sample_train, method = "class")
+options(repr.plot.width = 10, repr.plot.height = 10)
+rpart.plot(model1_decision, box.palette = "RdYlGn", shadow.col = "darkgray")
+data.frame(model1_decision$variable.importance)
+```
+
+```{r}
+metrics <- function(x){
+  Accuracy <- (x[4] + x[1]) / (nrow(train))
+  ErrorRate <- (x[3] + x[2]) / (nrow(train))
+  TPR_Recall <- x[4] / (x[2] + x[4])
+  FPR <- x[3] / (x[3] + x[1])
+  TNR_Specificity <- x[1] / (x[1] + x[3])
+  Precision <- x[4] / (x[3] + x[4])
+  F1score <- (2 * Precision * TPR_Recall) / (Precision + TPR_Recall)
+  cat("Accuracy = ", Accuracy, "\n", "Error Rate = ", ErrorRate, "\n", "True Positive Rate (Recall) = ", TPR_Recall, "\n", "False Positive Rate = ", FPR, "\n", "True Negative Rate (Specificity) = ", TNR_Specificity, "\n", "Precision = ", Precision, "\n", "F1Score = ", F1score)
+}
+```
+
+```{r}
+#prediction
+cat("Model1: Decision Tree Classifier\n")
+cat("Fitness level\n")
+prediction <- predict(model1_decision, test, type = "class")
+mean(prediction == test$Revenue)
+cat("\nEvaluation on test set\n")
+evaluate <- table(prediction, test$Revenue)
+evaluate
+metrics(evaluate)
+
+```
+From the above figure we can observe the various stages of the decision tree using the most significant attribute contributing towards the most information output. According to the feature importance table, PageValues
+remained at the top of the list followed by ProductRelated, Administrative, ProductRelated_Duration, BounceRates and Month_num. This is in line with all our recommendations from before owing to the importance of each and every one of these attributes. They are all revenue drivers and now there is a clearer picture on which of the above suggested recommendations are to be prioritized. 
+
+The fitness level of the model was at 87% however the F1 Score was at 67% suggesting an overfit model. However this is a considerable increase as compared to previous models. The intention was to capture those attributes that contribute the most to revenue growth so as to implement the above mentioned recommendations in a prioritized manner, to further improve on KPI (Key performance indicators).
+
+**Proposal 10:** The significant impact on PageValue suggests that customers look at considerably different products and its recommendations. Hence a significant improvement on recommendation engines and bundle packages would bring in more conversions. Including more products exploiting the long tail effect in e-commerce will also bring in more revenue drivers
+
+
